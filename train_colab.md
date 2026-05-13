@@ -1,7 +1,7 @@
 # Answer Reviewer — Colab Training & HuggingFace Deployment Guide
 
 This guide walks you through the full workflow:
-1. Train the model on Google Colab (free T4 GPU)
+1. Train the model on Google's T4 GPU via Colab
 2. Deploy the fine-tuned adapter to HuggingFace Hub
 3. Use the model via HuggingFace Inference API locally
 
@@ -13,69 +13,53 @@ Given a question, a reference answer, and a student's answer — the model outpu
 - **Grade:** `correct`, `partially_correct`, or `incorrect`
 - **Feedback:** a brief explanation of why
 
-**Dataset used:** [Meyerger/ASAG2024](https://huggingface.co/datasets/Meyerger/ASAG2024) — loaded directly from HuggingFace, no CSV needed.
+**Dataset:** [Meyerger/ASAG2024](https://huggingface.co/datasets/Meyerger/ASAG2024) — loaded directly from HuggingFace, no CSV needed.
 
 ---
 
 ## Before You Start
 
-You need three accounts — all free:
-- **Google Account** — for Colab + Google Drive
+You need two accounts — both free:
+- **Google Account** — for Colab GPU access + Google Drive
 - **HuggingFace Account** — sign up at [huggingface.co](https://huggingface.co)
-- **GitHub Account** — you already have this
 
 ### Get your HuggingFace Write Token
 1. Go to [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
 2. Click **New token** → name it anything → set permission to **Write**
 3. Copy the token — looks like `hf_xxxxxxxxxxxxxxxxxxxxxxxx`
-
-### Get your GitHub Personal Access Token (PAT)
-This is used to securely fetch the notebook from your private/public repo.
-
-1. Go to [github.com/settings/tokens](https://github.com/settings/tokens)
-2. Click **Generate new token (classic)**
-3. Give it a name (e.g. `colab-sync`) → check the **repo** scope
-4. Click **Generate token** and copy it — looks like `ghp_xxxxxxxxxxxxxxxx`
-
-### Add GitHub Token to Colab Secrets
-The token is stored securely in Colab — never visible in the notebook code.
-
-1. Open Colab
-2. Click the **🔑 key icon** in the left sidebar
-3. Click **+ Add new secret**
-4. Name: `GITHUB_TOKEN` — Value: paste your GitHub PAT
-5. Toggle **Notebook access** to ON
+4. Paste it into **Step 10** of the notebook before running
 
 ---
 
-## Part 1 — First-Time Upload (One Time Only)
+## How to Run (VS Code — Recommended)
 
-You only need to upload the notebook **once**. After that, Step 1 keeps it updated automatically.
+Running from VS Code is the best experience — you can switch tabs, close VS Code, or even shut your Mac screen and training keeps going on Google's servers.
+
+### One-time setup
+1. Open VS Code
+2. Go to **Extensions** → search **Google Colab** → install it
+3. Open `QLoRA_Fine-Tuning.ipynb` in VS Code
+
+### Every run
+1. Click **Select Kernel** (top right of the notebook)
+2. Click **Colab** → sign in with your Google account
+3. Select **T4 GPU** runtime
+4. Fill in your HF token and username in **Step 10**
+5. Click **Run All** (`Ctrl+Shift+P` → "Run All Cells" or the ▶▶ button)
+6. Switch tabs, do other work — training runs on Google's GPU, not your machine
+
+---
+
+## How to Run (Browser Colab)
 
 1. Go to [colab.research.google.com](https://colab.research.google.com)
-2. Click **File → Upload notebook**
-3. Upload `QLoRA_Fine-Tuning.ipynb` from this repo
+2. Click **File → Upload notebook** → upload `QLoRA_Fine-Tuning.ipynb`
+3. Set runtime: **Runtime → Change runtime type → T4 GPU → Save**
+4. Fill in your HF token and username in **Step 10**
+5. Click **Runtime → Run all**
 
-> After this first upload, you never need to upload again. Every time you push a change to GitHub, just re-run Step 1 in Colab and it fetches the latest version automatically.
-
----
-
-## Part 2 — Set Runtime to GPU
-
-In Colab: **Runtime → Change runtime type → Hardware accelerator → T4 GPU → Save**
-
-Without this, training will fail or take days.
-
----
-
-## Part 3 — Prevent Colab from Disconnecting
-
-Training takes **2–3 hours** on a T4. Colab disconnects after ~90 minutes of inactivity.
-
-**Fix — Browser Console Trick:**
-1. Open browser developer console: `F12` (Windows) or `Cmd+Option+J` (Mac)
-2. Go to the **Console** tab
-3. Paste this and press Enter:
+### Prevent disconnection when switching tabs
+Training takes 2–3 hours. If you want to switch browser tabs, paste this in your browser console (`F12` → Console tab) **before** running:
 
 ```javascript
 function ClickConnect(){
@@ -86,46 +70,24 @@ function ClickConnect(){
 setInterval(ClickConnect, 60000);
 ```
 
-> Even if it disconnects — checkpoints are saved to Google Drive after every epoch. Resume with one line (see Part 6).
+> The notebook also prints this snippet at the end of Step 0 as a reminder.
 
 ---
 
-## Part 4 — Fill in Your HuggingFace Credentials
-
-Before running, find **Step 13** in the notebook and fill in:
-
-```python
-HF_TOKEN    = "hf_xxxxxxxxxxxxxxxxxxxx"   # your HF write token
-HF_USERNAME = "your-hf-username"          # your HuggingFace username
-```
-
-The GitHub token is read automatically from Colab Secrets — no need to paste it anywhere.
-
----
-
-## Part 5 — Run the Notebook
-
-Click **Runtime → Run all** (`Ctrl+F9`)
-
-When prompted to mount Google Drive, click **Connect to Google Drive** and allow access.
-
-### What happens at each step:
+## What Happens at Each Step
 
 | Step | What happens | Time |
 |------|-------------|------|
-| Step 0 | Mounts Google Drive, creates checkpoint folder | ~1 min |
-| Step 1 | Fetches latest `QLoRA_Fine-Tuning.ipynb` from GitHub → saves to Drive | ~5s |
-| Step 2 | Installs all packages | ~2 min |
-| Step 3 | Keep-alive reminder (paste JS in browser console) | instant |
-| Step 4 | Imports | instant |
-| Step 5 | Downloads ASAG2024 dataset from HuggingFace | ~1 min |
-| Step 6 | Formats 5000 training examples into prompts | ~1 min |
-| Step 7 | Downloads base model (~4GB from HuggingFace) | ~5 min |
-| Step 8 | Tests base model before training | ~1 min |
-| Step 9–10 | Applies LoRA, tokenizes dataset | ~2 min |
-| Step 11 | **Training — 3 epochs** | ~2–3 hours |
-| Step 12 | Tests fine-tuned model on 3 examples | ~2 min |
-| Step 13 | Pushes adapter to HuggingFace Hub | ~2 min |
+| Step 0 | Mounts Google Drive, installs packages, prints keep-alive snippet | ~3 min |
+| Step 1 | Imports | instant |
+| Step 2 | Downloads ASAG2024 dataset from HuggingFace | ~1 min |
+| Step 3 | Formats 5000 training examples into prompts | ~1 min |
+| Step 4 | Downloads base model (~4GB from HuggingFace) | ~5 min |
+| Step 5 | Tests base model before training | ~1 min |
+| Step 6–7 | Applies LoRA, tokenizes dataset | ~2 min |
+| Step 8 | **Training — 3 epochs** | ~2–3 hours |
+| Step 9 | Tests fine-tuned model on 3 examples | ~2 min |
+| Step 10 | Pushes adapter to HuggingFace Hub | ~2 min |
 
 ### Training logs you'll see:
 ```
@@ -135,37 +97,24 @@ When prompted to mount Google Drive, click **Connect to Google Drive** and allow
 {'eval_loss': 1.31, 'epoch': 2.0}
 {'loss': 1.21, 'epoch': 3.0}
 {'eval_loss': 1.18, 'epoch': 3.0}
-Training complete!
+✓ Training complete!
 ```
 
 When it finishes:
 ```
-Model pushed to: https://huggingface.co/your-username/answer-reviewer
+✓ Model pushed to: https://huggingface.co/your-username/answer-reviewer
 ```
 
 ---
 
-## How the Notebook Sync Works
-
-Step 1 uses `curl` to fetch **only** `QLoRA_Fine-Tuning.ipynb` from GitHub's raw content URL and saves it to your Google Drive. It does not clone the repo or download anything else.
-
-**Your update workflow:**
-1. Make changes to the notebook locally
-2. Push to GitHub
-3. In Colab, re-run Step 1 — done, latest version is loaded in seconds
-
-No re-uploading. No cloning. Just one cell.
-
----
-
-## Part 6 — If Colab Disconnects Mid-Training
+## If the Session Disconnects Mid-Training
 
 Checkpoints are saved to `/content/drive/MyDrive/AnswerReviewer/model/` after every epoch.
 
 To resume:
-1. Reopen the notebook in Colab
-2. Run Steps 0–10 again (fast, no training)
-3. In Step 11, uncomment the resume cell:
+1. Reopen the notebook and reconnect to Colab T4
+2. Run Steps 0–7 again (fast, no training)
+3. Uncomment and run the **Resume Training** cell at the bottom:
 
 ```python
 trainer.train(resume_from_checkpoint=True)
@@ -173,7 +122,7 @@ trainer.train(resume_from_checkpoint=True)
 
 ---
 
-## Part 7 — Verify Your Model on HuggingFace
+## Verify Your Model on HuggingFace
 
 After training completes, go to:
 ```
@@ -187,7 +136,7 @@ You should see:
 
 ---
 
-## Part 8 — Use the Model Locally via API
+## Use the Model Locally via API
 
 Once deployed, call it from your local machine or React frontend.
 
@@ -233,17 +182,9 @@ Student Answer: {student_answer}
         return "Model is loading, please wait 30 seconds and try again."
     else:
         return f"Error {response.status_code}: {response.text}"
-
-# Test it
-result = review_answer(
-    question="What is photosynthesis?",
-    reference_answer="Photosynthesis is the process by which plants use sunlight, water, and CO2 to produce glucose and oxygen.",
-    student_answer="Photosynthesis is when plants make food from sunlight."
-)
-print(result)
 ```
 
-### Handle cold start (model takes ~30s to load on first request)
+### Handle cold start
 
 ```python
 import time
@@ -266,11 +207,9 @@ def review_with_retry(question, reference_answer, student_answer, retries=3):
 | What | Where |
 |------|-------|
 | HuggingFace tokens | [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) |
-| GitHub tokens | [github.com/settings/tokens](https://github.com/settings/tokens) |
 | Your model after training | `https://huggingface.co/your-username/answer-reviewer` |
 | Inference API endpoint | `https://api-inference.huggingface.co/models/your-username/answer-reviewer` |
 | Checkpoints during training | `/content/drive/MyDrive/AnswerReviewer/model/` |
-| Synced notebook on Drive | `/content/drive/MyDrive/AnswerReviewer/QLoRA_Fine-Tuning.ipynb` |
 | Dataset source | [huggingface.co/datasets/Meyerger/ASAG2024](https://huggingface.co/datasets/Meyerger/ASAG2024) |
 
 ---
@@ -278,25 +217,22 @@ def review_with_retry(question, reference_answer, student_answer, retries=3):
 ## Troubleshooting
 
 **"CUDA out of memory"**
-Reduce batch size in Step 11:
+Reduce batch size in Step 8:
 ```python
 batch_size = 1  # change from 2 to 1
 ```
 
 **"Model too large" on Inference API**
-The free serverless API sometimes rejects large models. Retry after 30 seconds — the model needs to load into memory first.
+Retry after 30 seconds — the model needs to cold-start into memory.
 
-**Colab disconnected mid-training**
-See Part 6 above — resume from checkpoint.
+**Session disconnected mid-training**
+See "If the Session Disconnects" section above — resume from checkpoint.
 
 **"Repository not found" when pushing to HuggingFace**
 Make sure your HF token has **Write** permission, not just Read.
 
-**Step 1 fails with 401 or empty file**
-Your `GITHUB_TOKEN` secret is missing or has wrong permissions. Re-check Colab Secrets and make sure **Notebook access** is toggled ON.
-
 **Want to train on more data?**
-In Step 6, increase the sample size:
+In Step 3, increase the sample size:
 ```python
 TRAIN_SAMPLES = 10000  # or 20000 for better accuracy (longer training)
 EVAL_SAMPLES  = 1000
