@@ -1,4 +1,4 @@
-# AamirGPT — Colab Training & HuggingFace Deployment Guide
+# Answer Reviewer — Colab Training & HuggingFace Deployment Guide
 
 This guide walks you through the full workflow:
 1. Train the model on Google Colab (free T4 GPU)
@@ -7,63 +7,59 @@ This guide walks you through the full workflow:
 
 ---
 
+## What This Model Does
+
+Given a question, a reference answer, and a student's answer — the model outputs:
+- **Grade:** `correct`, `partially_correct`, or `incorrect`
+- **Feedback:** a brief explanation of why
+
+**Dataset used:** [Meyerger/ASAG2024](https://huggingface.co/datasets/Meyerger/ASAG2024) — loaded directly from HuggingFace, no CSV needed.
+
+---
+
 ## Before You Start
 
 You need two accounts — both free:
 - **Google Account** — for Colab + Google Drive
-- **HuggingFace Account** — go to [huggingface.co](https://huggingface.co) and sign up
+- **HuggingFace Account** — sign up at [huggingface.co](https://huggingface.co)
 
-### Get your HuggingFace Token
+### Get your HuggingFace Write Token
 1. Go to [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
 2. Click **New token**
 3. Name it anything (e.g. `colab-training`)
 4. Set permission to **Write**
 5. Copy the token — it looks like `hf_xxxxxxxxxxxxxxxxxxxxxxxx`
-6. Keep it safe, you'll paste it into the notebooks
 
 ---
 
-## Part 1 — Upload Files to Google Colab
+## Part 1 — Upload the Notebook to Google Colab
 
-### Step 1 — Open Google Colab
-Go to [colab.research.google.com](https://colab.research.google.com)
+Only **one notebook** is needed: `QLoRA_Fine-Tuning.ipynb`
 
-### Step 2 — Upload the notebooks
-You need to upload **both notebooks** from this repo:
-- `create-dataset.ipynb`
-- `QLoRA_Fine-Tuning.ipynb`
+1. Go to [colab.research.google.com](https://colab.research.google.com)
+2. Click **File → Upload notebook**
+3. Upload `QLoRA_Fine-Tuning.ipynb` from this repo
 
-In Colab: click **File → Upload notebook** and upload them one at a time.
+> `create-dataset.ipynb` is no longer needed — the dataset loads directly from HuggingFace inside the main notebook.
 
-### Step 3 — Upload the data file
-The CSV file needs to be accessible inside Colab. Two options:
+---
 
-**Option A — Upload directly to Colab session (simpler)**
-In the left sidebar click the folder icon → click the upload button → upload `data/YT-comments.csv`
-Then create the folder structure: right-click → New folder → name it `data`, then move the CSV inside it.
+## Part 2 — Set Runtime to GPU
 
-**Option B — Upload to Google Drive (recommended)**
-1. Go to [drive.google.com](https://drive.google.com)
-2. Create a folder called `AamirGPT`
-3. Inside it, create a folder called `data`
-4. Upload `YT-comments.csv` into that `data` folder
-5. The path will be `/content/drive/MyDrive/AamirGPT/data/YT-comments.csv`
-6. Update the CSV path in `create-dataset.ipynb` accordingly
-
-### Step 4 — Set the Runtime to GPU
 In Colab: **Runtime → Change runtime type → Hardware accelerator → T4 GPU → Save**
 
-> Without this, training will be extremely slow or fail entirely.
+Without this, training will fail or take days.
 
 ---
 
-## Part 2 — Prevent Colab from Disconnecting
+## Part 3 — Prevent Colab from Disconnecting
 
-Colab disconnects after ~90 minutes of inactivity. Training takes ~70 minutes, so you need to keep it alive.
+Training takes **2–3 hours** on a T4. Colab disconnects after ~90 minutes of inactivity.
 
-**Method — Browser Console Trick**
-1. Open your browser's developer console: `F12` (Windows) or `Cmd+Option+J` (Mac)
-2. Paste this and press Enter:
+**Fix — Browser Console Trick:**
+1. Open browser developer console: `F12` (Windows) or `Cmd+Option+J` (Mac)
+2. Go to the **Console** tab
+3. Paste this and press Enter:
 
 ```javascript
 function ClickConnect(){
@@ -74,153 +70,159 @@ function ClickConnect(){
 setInterval(ClickConnect, 60000);
 ```
 
-This clicks the connect button every 60 seconds, preventing idle timeout.
-
-> Even if it does disconnect — checkpoints are saved to Google Drive after every epoch, so you won't lose your training progress.
+> Even if it disconnects — checkpoints are saved to Google Drive after every epoch. You can resume with one line (see Part 6).
 
 ---
 
-## Part 3 — Run `create-dataset.ipynb`
+## Part 4 — Fill in Your Credentials
 
-This notebook processes the raw CSV into a HuggingFace dataset and saves it to Drive.
+Before running, find **Step 12** in the notebook and fill in:
 
-### What to fill in before running:
-In the **"(Optional) Push Dataset to HuggingFace Hub"** section:
 ```python
 HF_TOKEN    = "hf_xxxxxxxxxxxxxxxxxxxx"   # your HF write token
 HF_USERNAME = "your-hf-username"          # your HuggingFace username
 ```
 
-### How to run:
-Click **Runtime → Run all** (or press `Ctrl+F9`)
+---
 
-When it asks to mount Google Drive, click **Connect to Google Drive** and allow access.
+## Part 5 — Run the Notebook
 
-After it finishes, you'll see the dataset saved at `/content/drive/MyDrive/AamirGPT/data/`
+Click **Runtime → Run all** (`Ctrl+F9`)
+
+When prompted to mount Google Drive, click **Connect to Google Drive** and allow access.
+
+### What happens at each step:
+
+| Step | What happens | Time |
+|------|-------------|------|
+| Step 0 | Installs all packages | ~2 min |
+| Step 1 | Mounts Google Drive | ~1 min |
+| Step 4 | Downloads ASAG2024 dataset from HuggingFace | ~1 min |
+| Step 5 | Formats 5000 training examples into prompts | ~1 min |
+| Step 6 | Downloads base model (~4GB from HuggingFace) | ~5 min |
+| Step 7 | Tests base model before training | ~1 min |
+| Step 8–9 | Applies LoRA, tokenizes dataset | ~2 min |
+| Step 10 | **Training — 3 epochs** | ~2–3 hours |
+| Step 11 | Tests fine-tuned model on 3 examples | ~2 min |
+| Step 12 | Pushes adapter to HuggingFace Hub | ~2 min |
+
+### Training logs you'll see:
+```
+{'loss': 1.85, 'epoch': 1.0}
+{'eval_loss': 1.62, 'epoch': 1.0}
+{'loss': 1.43, 'epoch': 2.0}
+{'eval_loss': 1.31, 'epoch': 2.0}
+{'loss': 1.21, 'epoch': 3.0}
+{'eval_loss': 1.18, 'epoch': 3.0}
+Training complete!
+```
+
+When it finishes:
+```
+Model pushed to: https://huggingface.co/your-username/answer-reviewer
+```
 
 ---
 
-## Part 4 — Run `QLoRA_Fine-Tuning.ipynb`
+## Part 6 — If Colab Disconnects Mid-Training
 
-This is the main notebook — loads the model, trains it, and pushes to HuggingFace.
+Don't panic. Checkpoints are saved to `/content/drive/MyDrive/AnswerReviewer/model/` after every epoch.
 
-### What to fill in before running:
+To resume:
+1. Reopen the notebook in Colab
+2. Run Steps 0–9 again (fast, no training)
+3. In Step 10, uncomment the resume cell at the bottom:
 
-**Step 10 — Push to Hub cell:**
 ```python
-HF_TOKEN    = "hf_xxxxxxxxxxxxxxxxxxxx"   # your HF write token
-HF_USERNAME = "your-hf-username"          # your HuggingFace username
-```
-
-### How to run:
-Click **Runtime → Run all** (or press `Ctrl+F9`)
-
-When it asks to mount Google Drive, click **Connect to Google Drive** and allow access.
-
-### What happens during training:
-| Time | What's happening |
-|------|-----------------|
-| 0–5 min | Installing packages, mounting Drive |
-| 5–10 min | Downloading base model (~4GB from HuggingFace) |
-| 10–80 min | Training — 10 epochs, loss drops from ~4.4 → ~1.35 |
-| 80–85 min | Pushing adapter weights to HuggingFace Hub |
-| 85–90 min | Running inference test on the fine-tuned model |
-
-You'll see training logs like this as it runs:
-```
-{'loss': 4.4215, 'epoch': 0.92}
-{'eval_loss': 4.04, 'epoch': 0.92}
-{'loss': 3.34, 'epoch': 2.77}
-...
-{'loss': 1.17, 'epoch': 9.23}
-```
-
-When it finishes you'll see:
-```
-Model pushed to: https://huggingface.co/your-username/AamirGPT
+trainer.train(resume_from_checkpoint=True)
 ```
 
 ---
 
-## Part 5 — Verify Your Model on HuggingFace
+## Part 7 — Verify Your Model on HuggingFace
 
-1. Go to [huggingface.co/your-username/AamirGPT](https://huggingface.co)
-2. You should see your model repository with:
-   - `adapter_config.json` — LoRA configuration
-   - `adapter_model.safetensors` — the trained adapter weights
-   - `README.md` — auto-generated model card
+After training completes, go to:
+```
+https://huggingface.co/your-username/answer-reviewer
+```
+
+You should see:
+- `adapter_config.json` — LoRA configuration
+- `adapter_model.safetensors` — trained adapter weights (a few MB)
+- `README.md` — auto-generated model card
 
 ---
 
-## Part 6 — Use the Model Locally via API
+## Part 8 — Use the Model Locally via API
 
-Once your model is on HuggingFace Hub, you can call it from your local machine using the Inference API.
+Once deployed, call it from your local machine or React frontend.
 
-### Get your HuggingFace API key
-Same token you used for training — the `hf_xxxx` token with **read** permission is enough for inference.
-
-### Python example — call the model locally
+### Python example
 
 ```python
 import requests
 
-API_URL = "https://api-inference.huggingface.co/models/your-username/AamirGPT"
-HEADERS = {"Authorization": "Bearer hf_xxxxxxxxxxxxxxxxxxxx"}  # your HF token
+HF_TOKEN    = "hf_xxxxxxxxxxxxxxxxxxxx"   # read token is enough for inference
+HF_USERNAME = "your-hf-username"
 
-def ask_aamir_gpt(comment):
-    instructions = """AamirGPT, functioning as a virtual data science consultant on YouTube,
-communicates in clear, accessible language, escalating to technical depth upon request.
-It reacts to feedback aptly and ends responses with its signature '–AamirGPT'.
-AamirGPT will tailor the length of its responses to match the viewer's comment."""
+API_URL = f"https://api-inference.huggingface.co/models/{HF_USERNAME}/answer-reviewer"
+HEADERS = {"Authorization": f"Bearer {HF_TOKEN}"}
 
-    prompt = f"[INST] {instructions}\n\nPlease respond to the following comment.\n\n{comment}\n[/INST]"
+SYSTEM_PROMPT = """You are an expert answer reviewer. You are given a question, a reference answer, and a student's answer.
+Your task is to evaluate the student's answer by comparing it to the reference answer.
+Respond with:
+- Grade: one of [correct, partially_correct, incorrect]
+- Feedback: a brief explanation of why the student's answer is correct, partially correct, or incorrect."""
+
+def review_answer(question, reference_answer, student_answer):
+    prompt = f"""[INST] {SYSTEM_PROMPT}
+
+Question: {question}
+Reference Answer: {reference_answer}
+Student Answer: {student_answer}
+[/INST]"""
 
     payload = {
         "inputs": prompt,
         "parameters": {
-            "max_new_tokens": 280,
-            "temperature": 0.7,
+            "max_new_tokens": 200,
+            "temperature": 0.1,
             "return_full_text": False
         }
     }
 
     response = requests.post(API_URL, headers=HEADERS, json=payload)
-    return response.json()[0]["generated_text"]
+
+    if response.status_code == 200:
+        return response.json()[0]["generated_text"].strip()
+    elif response.status_code == 503:
+        return "Model is loading, please wait 30 seconds and try again."
+    else:
+        return f"Error {response.status_code}: {response.text}"
 
 # Test it
-print(ask_aamir_gpt("What is fat-tailedness?"))
-print(ask_aamir_gpt("Great video, learned a lot!"))
+result = review_answer(
+    question="What is photosynthesis?",
+    reference_answer="Photosynthesis is the process by which plants use sunlight, water, and CO2 to produce glucose and oxygen.",
+    student_answer="Photosynthesis is when plants make food from sunlight."
+)
+print(result)
 ```
 
-### Install requests if needed:
-```bash
-pip install requests
-```
+### Handle cold start (model takes time to load on first request)
 
-### Important notes about the free Inference API:
-- **Cold start** — if the model hasn't been used recently, the first request takes 20–60 seconds to load. Subsequent requests are fast.
-- **Rate limits** — the free tier allows a reasonable number of requests per day, enough for testing and personal use
-- **Model size** — Mistral-7B may not always be available on the free serverless tier. If you get a 503 error, the model is loading — just retry after 30 seconds
-
-### Handle the cold start in code:
 ```python
 import time
 
-def ask_with_retry(comment, retries=3):
+def review_with_retry(question, reference_answer, student_answer, retries=3):
     for attempt in range(retries):
-        response = requests.post(API_URL, headers=HEADERS, json={
-            "inputs": comment,
-            "parameters": {"max_new_tokens": 280, "return_full_text": False}
-        })
-        if response.status_code == 200:
-            return response.json()[0]["generated_text"]
-        elif response.status_code == 503:
-            print(f"Model loading... waiting 30s (attempt {attempt+1}/{retries})")
+        result = review_answer(question, reference_answer, student_answer)
+        if "loading" in result.lower():
+            print(f"Model loading... retrying in 30s (attempt {attempt+1}/{retries})")
             time.sleep(30)
         else:
-            print(f"Error {response.status_code}: {response.text}")
-            break
-    return None
+            return result
+    return "Model unavailable, please try again later."
 ```
 
 ---
@@ -230,29 +232,33 @@ def ask_with_retry(comment, retries=3):
 | What | Where |
 |------|-------|
 | HuggingFace tokens | [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) |
-| Your model after training | `https://huggingface.co/your-username/AamirGPT` |
-| Inference API endpoint | `https://api-inference.huggingface.co/models/your-username/AamirGPT` |
-| Checkpoints during training | `/content/drive/MyDrive/AamirGPT/model/` |
-| Dataset on Drive | `/content/drive/MyDrive/AamirGPT/data/` |
+| Your model after training | `https://huggingface.co/your-username/answer-reviewer` |
+| Inference API endpoint | `https://api-inference.huggingface.co/models/your-username/answer-reviewer` |
+| Checkpoints during training | `/content/drive/MyDrive/AnswerReviewer/model/` |
+| Dataset source | [huggingface.co/datasets/Meyerger/ASAG2024](https://huggingface.co/datasets/Meyerger/ASAG2024) |
 
 ---
 
 ## Troubleshooting
 
-**"CUDA out of memory" during training**
-Reduce batch size in `QLoRA_Fine-Tuning.ipynb`:
+**"CUDA out of memory"**
+Reduce batch size in Step 10:
 ```python
-batch_size = 2  # change from 4 to 2
+batch_size = 1  # change from 2 to 1
 ```
 
 **"Model too large" on Inference API**
-The free serverless API sometimes rejects large models. Use the retry logic above, or test inference directly in Colab after training.
+The free serverless API sometimes rejects large models. Retry after 30 seconds — the model needs to load into memory first.
 
 **Colab disconnected mid-training**
-Don't panic — checkpoints are saved to Drive every epoch. Reopen the notebook, re-run from Step 9 (Fine-tune), and set `resume_from_checkpoint=True`:
-```python
-trainer.train(resume_from_checkpoint=True)
-```
+See Part 6 above — resume from checkpoint.
 
-**"Repository not found" when pushing to Hub**
-Make sure you're logged in with a **write** token, not a read token.
+**"Repository not found" when pushing**
+Make sure your token has **Write** permission, not just Read.
+
+**Want to train on more data?**
+In Step 5, increase the sample size:
+```python
+TRAIN_SAMPLES = 10000  # or 20000 for better accuracy (longer training)
+EVAL_SAMPLES  = 1000
+```
