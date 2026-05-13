@@ -13,15 +13,16 @@ Given a question, a reference answer, and a student's answer — the model outpu
 - **Grade:** `correct`, `partially_correct`, or `incorrect`
 - **Feedback:** a brief explanation of why
 
-**Dataset used:** [Meyerger/ASAG2024](https://huggingface.co/datasets/Meyerger/ASAG2024) — loaded directly from HuggingFace, no CSV needed.
+**Dataset used:** [Meyerger/ASAG2024](https://huggingface.co/datasets/Meyerger/ASAG2024) — loaded directly from HuggingFace.
 
 ---
 
 ## Before You Start
 
-You need two accounts — both free:
+You need three accounts — all free:
 - **Google Account** — for Colab + Google Drive
 - **HuggingFace Account** — sign up at [huggingface.co](https://huggingface.co)
+- **GitHub Account** — for repo sync (you already have this)
 
 ### Get your HuggingFace Write Token
 1. Go to [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
@@ -29,6 +30,22 @@ You need two accounts — both free:
 3. Name it anything (e.g. `colab-training`)
 4. Set permission to **Write**
 5. Copy the token — it looks like `hf_xxxxxxxxxxxxxxxxxxxxxxxx`
+
+### Get your GitHub Personal Access Token (PAT)
+1. Go to [github.com/settings/tokens](https://github.com/settings/tokens)
+2. Click **Generate new token (classic)**
+3. Give it a name (e.g. `colab-sync`)
+4. Check the **repo** scope
+5. Click **Generate token** and copy it — looks like `ghp_xxxxxxxxxxxxxxxx`
+
+### Add GitHub Token to Colab Secrets
+This is how Colab securely reads your token without it being visible in the notebook:
+1. Open your notebook in Colab
+2. Click the **🔑 key icon** in the left sidebar (or go to `Tools → Secrets`)
+3. Click **+ Add new secret**
+4. Name: `GITHUB_TOKEN`
+5. Value: paste your GitHub PAT
+6. Toggle **Notebook access** to ON
 
 ---
 
@@ -40,7 +57,7 @@ Only **one notebook** is needed: `QLoRA_Fine-Tuning.ipynb`
 2. Click **File → Upload notebook**
 3. Upload `QLoRA_Fine-Tuning.ipynb` from this repo
 
-> `create-dataset.ipynb` is no longer needed — the dataset loads directly from HuggingFace inside the main notebook.
+> `create-dataset.ipynb` is no longer needed — the dataset loads directly from HuggingFace and the repo syncs automatically via GitHub.
 
 ---
 
@@ -76,12 +93,14 @@ setInterval(ClickConnect, 60000);
 
 ## Part 4 — Fill in Your Credentials
 
-Before running, find **Step 12** in the notebook and fill in:
+Before running, find **Step 13** in the notebook and fill in:
 
 ```python
 HF_TOKEN    = "hf_xxxxxxxxxxxxxxxxxxxx"   # your HF write token
 HF_USERNAME = "your-hf-username"          # your HuggingFace username
 ```
+
+The GitHub token is read automatically from Colab Secrets — no need to paste it anywhere in the notebook.
 
 ---
 
@@ -95,16 +114,17 @@ When prompted to mount Google Drive, click **Connect to Google Drive** and allow
 
 | Step | What happens | Time |
 |------|-------------|------|
-| Step 0 | Installs all packages | ~2 min |
-| Step 1 | Mounts Google Drive | ~1 min |
-| Step 4 | Downloads ASAG2024 dataset from HuggingFace | ~1 min |
-| Step 5 | Formats 5000 training examples into prompts | ~1 min |
-| Step 6 | Downloads base model (~4GB from HuggingFace) | ~5 min |
-| Step 7 | Tests base model before training | ~1 min |
-| Step 8–9 | Applies LoRA, tokenizes dataset | ~2 min |
-| Step 10 | **Training — 3 epochs** | ~2–3 hours |
-| Step 11 | Tests fine-tuned model on 3 examples | ~2 min |
-| Step 12 | Pushes adapter to HuggingFace Hub | ~2 min |
+| Step 0 | Mounts Google Drive | ~1 min |
+| Step 1 | Clones repo (first run) or pulls latest (subsequent runs) | ~30s |
+| Step 2 | Installs all packages | ~2 min |
+| Step 5 | Downloads ASAG2024 dataset from HuggingFace | ~1 min |
+| Step 6 | Formats 5000 training examples into prompts | ~1 min |
+| Step 7 | Downloads base model (~4GB from HuggingFace) | ~5 min |
+| Step 8 | Tests base model before training | ~1 min |
+| Step 9–10 | Applies LoRA, tokenizes dataset | ~2 min |
+| Step 11 | **Training — 3 epochs** | ~2–3 hours |
+| Step 12 | Tests fine-tuned model on 3 examples | ~2 min |
+| Step 13 | Pushes adapter to HuggingFace Hub | ~2 min |
 
 ### Training logs you'll see:
 ```
